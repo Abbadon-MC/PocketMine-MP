@@ -116,6 +116,8 @@ use pocketmine\world\WorldCreationOptions;
 use pocketmine\world\WorldManager;
 use Ramsey\Uuid\UuidInterface;
 use Webmozart\PathUtil\Path;
+use React\EventLoop\Factory;
+use React\EventLoop\LoopInterface;
 use function array_sum;
 use function base64_encode;
 use function cli_set_process_title;
@@ -235,6 +237,11 @@ class Server{
 	private ResourcePackManager $resourceManager;
 
 	private WorldManager $worldManager;
+
+	/** @var LoopInterface **/
+	private $loop;
+
+	private $loopIsRunning = false;
 
 	private int $maxPlayers;
 
@@ -778,6 +785,7 @@ class Server{
 		$this->startTime = microtime(true);
 
 		$this->tickSleeper = new SleeperHandler();
+		$this->loop = Factory::create();
 
 		$this->signalHandler = new SignalHandler(function() : void{
 			$this->logger->info("Received signal interrupt, stopping the server");
@@ -1067,6 +1075,10 @@ class Server{
 		}catch(\Throwable $e){
 			$this->exceptionHandler($e);
 		}
+	}
+
+	public function getLoop() : LoopInterface{
+			return $this->loop;
 	}
 
 	private function startupPrepareWorlds() : bool{
@@ -1705,6 +1717,9 @@ class Server{
 
 			//sleeps are self-correcting - if we undersleep 1ms on this tick, we'll sleep an extra ms on the next tick
 			$this->tickSleeper->sleepUntil($this->nextTick);
+			if (!$this->loopIsRunning) {
+					$this->loop->run();
+			}
 		}
 	}
 
